@@ -1,0 +1,8 @@
+terraform/terraform.tfstate*
+terraform/terraform.tfvars
+known_hosts
+.ssh/
+old/
+terraform/.terraform*
+*.bak
+git-push.sh

@@ -1,0 +1,25 @@
+# uncomment if you want to replace default values
+#instance_name = [ "control-node", "worker1-node", "worker2-node" ]
+#region = "us-central1"
+#zone = "us-central1-f"
+
+# use the project id used in the setup process
+# "gcloud config get core/project" will display the project id
+project = {
+    name = "<project name>"
+}
+# boot image
+# use command: 
+# gcloud compute images list --standard-images --filter='name~"^ubuntu-minimal" AND NOT name~".*arm.*"'
+# to list all ubuntu minimal non arm image options
+image = "ubuntu-minimal-2204-jammy-v20240926"
+
+# use the client service account defined during setup
+# get a list of service accounts with the command below
+# gcloud iam service-accounts list
+service_account = {
+    name = "<service account>"
+}
+ssh_keys = {
+    value = "student:<new key to be generated>"
+}
