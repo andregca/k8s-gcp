@@ -3,8 +3,10 @@
 <a href="https://github.com/andregca/k8s-gcp"><img src="https://kubernetes.io/images/kubernetes.png" title="Logo" style="max-width:100%;" width="128" /></a>
 </div>
 <div align="center">
+
 ![GitHub License](https://img.shields.io/github/license/andregca/k8s-gcp)
-![GitHub repo size](https://img.shields.io/github/repo-size/:user/:repo)
+![GitHub repo size](https://img.shields.io/github/repo-size/andregca/k8s-gcp)
+
 </div></h1>
 
 
