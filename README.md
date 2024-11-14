@@ -2,9 +2,7 @@
 <div align="center">
 <a href="https://github.com/andregca/k8s-gcp"><img src="https://kubernetes.io/images/kubernetes.png" title="Logo" style="max-width:100%;" width="128" /></a>
 </div>
-<div align="center">
-<img alt="GitHub License" src="https://img.shields.io/github/license/andregca/k8s-gcp">
-</div></h1>
+</h1>
 
 
 
