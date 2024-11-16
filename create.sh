@@ -5,7 +5,7 @@ USERNAME="student"
 TF_DIR="./terraform"
 SSH_KEY_DIR=".ssh"
 SSH_CONFIG_FILE="$HOME/.ssh/config"
-SSH_KEY_FILE="$SSH_KEY_DIR/my_key"
+SSH_KEY_FILE="$SSH_KEY_DIR/${USERNAME}_key"
 
 # create ssh key dir if it does not exist
 if [ ! -d "${SSH_KEY_DIR}" ]; then
@@ -19,7 +19,7 @@ if [ -f "${SSH_KEY_FILE}" ]; then
     rm $SSH_KEY_FILE.pub
 fi
 
-ssh-keygen -t ed25519 -N "" -b 4096 -C "$(whoami)@$(hostname)" -f $SSH_KEY_FILE
+ssh-keygen -t ed25519 -N "" -b 4096 -C "${USERNAME}" -f $SSH_KEY_FILE
 echo "Done"
 
 # get public-key value
@@ -54,6 +54,19 @@ EOF
     echo "$config_entry"
 }
 
+function rm_file() {
+    # args: filename
+    filename=$1
+    if [ -f "${1}" ]; then
+        echo -n "Removing ${1} file... "
+        /bin/rm $1
+        echo "Done."
+    fi
+}
+
+# rm known_hosts file if exist
+rm_file "./known_hosts"
+
 # backup ssh_config if it exists
 if [ -f $SSH_CONFIG_FILE ]; then
     echo -n "${SSH_CONFIG_FILE} exists. Backing it up... "
@@ -61,33 +74,31 @@ if [ -f $SSH_CONFIG_FILE ]; then
     echo "Done."
 fi
 
-# rm known_hosts file if exists
-if [ -f "./known_hosts" ]; then
-    echo -n "Removing ./known_hosts file... "
-    /bin/rm ./known_hosts
-    echo "Done."
-fi
-
-# create a new ssh config file
-touch $SSH_CONFIG_FILE
-
 IFS_SAVE=$IFS
 IFS=$'\n'
 hostnames=( $(jq -r ".resources[0].instances[].attributes.name" $TF_STATE) )
 ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_interface[0].access_config[0].nat_ip" $TF_STATE) )
 IFS=$IFS_SAVE
 
-lines=""
+# create a new lab_hosts file
+echo -e "\n# k8s cluster hosts" > ./lab_hosts
+
+ssh_lines=""
+host_lines="\n# k8s cluster hosts"
 for i in ${!hostnames[*]}; do
   hostname=${hostnames[$i]}
   ip_address=${ip_addresses[$i]}
+  # add ssh_config entries to list
   entries=$(gen_ssh_config_entries "${hostname}" "${ip_address}" "${USERNAME}" "${SSH_KEY_FILE}")
-  if [ -z "$lines" ]; then sep=""; else sep="\n\n"; fi
-  lines="$lines$sep$entries"
+  if [ -z "$ssh_lines" ]; then sep=""; else sep="\n\n"; fi
+  ssh_lines="${ssh_lines}${sep}${entries}"
+  # add k8s cluster hosts entries to list
+  host_lines="${host_lines}\n${ip_address}\t\t${hostname}"
+  echo "${ip_address} ${hostname}" >> "./lab_hosts"
 done
 
 echo -n "Writing $SSH_CONFIG_FILE to disk... "
-echo -e "$lines" > $SSH_CONFIG_FILE
+echo -e "$ssh_lines" > $SSH_CONFIG_FILE
 echo "Done."
 
 FINISHED_STR="Finished running startup scripts"
@@ -104,7 +115,7 @@ while (( countdown > 0 )); do
         break
     else
         countdown=$(expr $countdown-1)
-        echo sleeping $INTERVAL
+        echo "Startup script is still running on control node... Waiting $INTERVAL secs..."
         sleep $INTERVAL
     fi
 done
@@ -116,6 +127,23 @@ fi
 
 echo "Done"
 
+# Updating /etc/hosts and copying ssh keys to all cluster nodes
+for i in ${!hostnames[*]}; do
+    hostname=${hostnames[$i]}
+    echo "Updating /etc/hosts on ${hostname}"
+    ssh ${USERNAME}@${hostname} "echo -e '${host_lines}' | sudo tee -a /etc/hosts" 
+    echo "Done"
+    echo "Copying ssh key files"
+    scp ${SSH_KEY_FILE}* "${USERNAME}@${hostname}:~/.ssh"
+    # change permissions
+    ssh ${USERNAME}@${hostname} "chmod 600 ~/.ssh/${USERNAME}_key && chmod 644 ~/.ssh/${USERNAME}_key.pub"
+    echo "Done"
+    # define this key as the default identity file
+    echo -n "Define ~/.ssh/${USERNAME}_key as default identity file... "
+    ssh ${USERNAME}@${hostname} "echo -e 'IdentityFile ~/.ssh/${USERNAME}_key' > ~/.ssh/config" 
+    echo "Done"
+done
+
 # check if the control node is ready
 countdown=$RETRIES
 echo "Checking if control node is ready."
@@ -125,7 +153,7 @@ while (( countdown > 0 )); do
         break
     else
         countdown=$(expr $countdown-1)
-        echo "Control node not ready. Sleeping $INTERVAL secs"
+        echo "Control node is not ready. Waiting $INTERVAL secs"
         sleep $INTERVAL
     fi
 done
