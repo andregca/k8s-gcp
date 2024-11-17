@@ -77,31 +77,35 @@ fi
 IFS_SAVE=$IFS
 IFS=$'\n'
 hostnames=( $(jq -r ".resources[0].instances[].attributes.name" $TF_STATE) )
-ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_interface[0].access_config[0].nat_ip" $TF_STATE) )
+public_ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_interface[0].access_config[0].nat_ip" $TF_STATE) )
+private_ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_interface[0].network_ip" $TF_STATE) )
 IFS=$IFS_SAVE
 
 # create a new lab_hosts file
 echo -e "\n# k8s cluster hosts" > ./lab_hosts
 
 ssh_lines=""
-host_lines="\n# k8s cluster hosts"
+host_lines=""
 for i in ${!hostnames[*]}; do
   hostname=${hostnames[$i]}
-  ip_address=${ip_addresses[$i]}
+  public_ip=${public_ip_addresses[$i]}
+  private_ip=${private_ip_addresses[$i]}
   # add ssh_config entries to list
-  entries=$(gen_ssh_config_entries "${hostname}" "${ip_address}" "${USERNAME}" "${SSH_KEY_FILE}")
+  entries=$(gen_ssh_config_entries "${hostname}" "${public_ip}" "${USERNAME}" "${SSH_KEY_FILE}")
   if [ -z "$ssh_lines" ]; then sep=""; else sep="\n\n"; fi
   ssh_lines="${ssh_lines}${sep}${entries}"
   # add k8s cluster hosts entries to list
-  host_lines="${host_lines}\n${ip_address}\t\t${hostname}"
-  echo "${ip_address} ${hostname}" >> "./lab_hosts"
+  host_lines="${host_lines}\n${private_ip}\t\t${hostname}"
 done
 
 echo -n "Writing $SSH_CONFIG_FILE to disk... "
 echo -e "$ssh_lines" > $SSH_CONFIG_FILE
 echo "Done."
 
-FINISHED_STR="Finished running startup scripts"
+FINISHED_STR="Finished running startup scripts."
+echo -n "Waiting 5 seconds... "
+sleep 5
+echo "Done"
 
 # check if the startup script finished
 declare -i RETRIES=18
@@ -131,7 +135,7 @@ echo "Done"
 for i in ${!hostnames[*]}; do
     hostname=${hostnames[$i]}
     echo "Updating /etc/hosts on ${hostname}"
-    ssh ${USERNAME}@${hostname} "echo -e '${host_lines}' | sudo tee -a /etc/hosts" 
+    ssh ${USERNAME}@${hostname} "echo -e '${host_lines}' | grep -v ${hostname} | sudo tee -a /etc/hosts" 
     echo "Done"
     echo "Copying ssh key files"
     scp ${SSH_KEY_FILE}* "${USERNAME}@${hostname}:~/.ssh"
