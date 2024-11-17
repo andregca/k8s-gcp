@@ -19,7 +19,7 @@ sudo apt-get install -y jq apparmor-utils vim less apt-transport-https bash-comp
 # if you want to hard code the releases, uncomment the lines below
 # calico compatibility matrix can be found below
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/requirements
-#KUBEVERSION="v1.31.2"
+#KUBEVERSION="v1.31"
 #CONTAINERD_VERSION="2.0.0"
 #RUNC_VERSION="v1.2.1"
 #CNI_PLUGIN_VERSION="v1.6.0"
