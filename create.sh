@@ -125,7 +125,7 @@ while (( countdown > 0 )); do
 done
 
 if (( countdown == 0 )); then
-    echo "Exiting after timeout. Waited ${timeout} secs."
+    echo "Exiting after timeout. Waited ${timeout} secs. Run ./destroy.sh and try again."
     exit
 fi
 
@@ -163,7 +163,7 @@ while (( countdown > 0 )); do
 done
 
 if (( countdown == 0 )); then
-    echo "Exiting after timeout. Waited ${timeout} secs."
+    echo "Exiting after timeout. Waited ${timeout} secs. Run ./destroy.sh and try again."
     exit
 fi
 
@@ -187,3 +187,33 @@ for i in ${!hostnames[*]}; do
 done
 
 echo "Done."
+
+# need to restart coredns to make sure it is distributed across different nodes
+echo "Waiting 30 seconds to restart coredns, to distribute it across different nodes"
+countdown=30
+while [ $countdown -ge 0 ]; do
+    printf '  countdown %s sec   \r' "${countdown}"
+    sleep 1
+    countdown=$(( $countdown-1 ))
+done
+echo "Done.                 "
+
+# restarting coredns on control node
+for i in ${!hostnames[*]}; do
+    # assumes control node has its hostname starting with "control"
+    hostname=${hostnames[i]}
+    if [[ $hostname == control* ]]; then
+        echo "Restarting coredns on ${hostname}..."
+        ssh ${hostname} "kubectl -n kube-system rollout restart deployment coredns"
+        echo "Done"
+        break
+    fi
+done
+
+echo "Check if DNS is working fine on control node using the commands below:"
+echo "1. Check if the coredns pods are running:"
+echo "   => kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide"
+echo "2. If they are running in different nodes, run the command below to test dns:"
+echo "   => kubectl run test-dns --rm -it --image=busybox --restart=Never -- nslookup kubernetes.default.svc.cluster.local"
+echo "If the coredns pods are not running on different worker nodes, try to restart them:"
+echo "   => kubectl -n kube-system rollout restart deployment coredns"
