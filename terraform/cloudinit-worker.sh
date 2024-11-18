@@ -6,10 +6,10 @@
 # Last revision 12-Nov-2024
 
 # updates and install utilities
-sudo apt update
-sudo apt upgrade -y
+sudo apt-get update
+sudo apt-get upgrade -y
 sudo systemctl restart google-osconfig-agent.service
-sudo apt install -y jq apparmor-utils vim less apt-transport-https curl bash-completion dialog
+sudo apt-get install -y jq apparmor-utils vim less apt-transport-https bash-completion dialog
 
 # define software versions
 # default: use the kubernetes versions defined at CKA exam
@@ -43,6 +43,14 @@ EOF
 
 # Apply sysctl params without reboot
 sudo sysctl --system
+
+# update the /etc/hosts to contain the local ip address
+# get the local interface used in the default route
+local_interface=$(ip route show | awk '/default/ {print $5}')
+# get the ip address of the local interface
+local_ip=$(ip addr show ${local_interface} | awk '/inet / {print $2}' | cut -d/ -f1)
+hostname=$(hostname)
+echo -e "\n# k8s cluster hosts\n${local_ip}\t\t${hostname}" | sudo tee -a /etc/hosts
 
 # (Install containerd)
 # getting rid of hard coded version numbers
