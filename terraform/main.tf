@@ -37,7 +37,7 @@ resource "google_compute_instance" "default" {
   # iterate on the number of instance_names
   count = length(var.instance_name)
   name                = "${var.instance_name[count.index]}"
-  machine_type        = "e2-small"
+  machine_type        = var.machine_type
   description         = "K8s ${var.instance_name[count.index]}"
   desired_status      = "RUNNING"
   hostname            = "${var.instance_name[count.index]}.local"
@@ -67,9 +67,10 @@ resource "google_compute_instance" "default" {
 
   scheduling {
     automatic_restart   = true
-    on_host_maintenance = "MIGRATE"
-    preemptible         = false
-    provisioning_model  = "STANDARD"
+    provisioning_model  = var.provisioning_model
+    # set to migrate if standard or terminate if spot
+    on_host_maintenance = (var.provisioning_model == "STANDARD") ? "MIGRATE" : "TERMINATE"
+    preemptible         = (var.provisioning_model == "SPOT") ? true : false
   }
 
   service_account {

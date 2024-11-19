@@ -23,6 +23,25 @@ variable "image" {
     default = "ubuntu-minimal-2204-jammy-v20240926"
 }
 
+variable "provisioning_model" {
+    type = string
+    description = "Provisioning model (STANDARD or SPOT)"
+    default = "STANDARD"
+}
+
+variable "machine_type" {
+    type = string
+    description = "Machine Type (Flavor)"
+    default = "e2-medium"
+}
+
+variable "max_run_duration" {
+    type = string
+    description = "Maximum VM Run Duration (in seconds)"
+    # default 8 hours (8 * 60 * 60 = 28800 seconds)
+    default = 28800
+}
+
 variable "project" {
     type = object({
       name = string

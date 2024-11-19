@@ -8,6 +8,21 @@
 project = {
     name = "<project name>"
 }
+
+# machine type
+# suggestions below:
+# e2-medium - 2 vcpu (1 shared core), 4GB memory
+# e2-highcpu-2 - 2 vcpu (1 core), 2GB memory
+# n2-highcpu-2 - 2 vcpu (1 core), 2GB memory (intel cascade and ice lake)
+machine_type = "e2-medium"
+
+# provisioning model
+# SPOT or STANDARD - SPOT can be up to 91% cheaper
+provisioning_model = "STANDARD"
+
+# max VM run duration in seconds
+max_run_duration = 28800
+
 # boot image
 # use command: 
 # gcloud compute images list --standard-images --filter='name~"^ubuntu-minimal" AND NOT name~".*arm.*"'
