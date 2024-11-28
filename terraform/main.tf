@@ -41,7 +41,7 @@ resource "google_compute_instance" "default" {
   description         = "K8s ${var.instance_name[count.index]}"
   desired_status      = "RUNNING"
   hostname            = "${var.instance_name[count.index]}.local"
-  can_ip_forward      = false
+  can_ip_forward      = true
   deletion_protection = false
   enable_display      = false
 
