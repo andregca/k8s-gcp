@@ -57,11 +57,3 @@ variable "service_account" {
     description = ("Service Account Name")
     sensitive = true
 }
-
-variable "ssh_keys" {
-    type = object({
-        value = string
-    })
-    description = ("SSH Key")
-    sensitive = true
-}
