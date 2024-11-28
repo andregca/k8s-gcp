@@ -26,8 +26,19 @@ echo "Done"
 KEY=$(cat $SSH_KEY_FILE.pub)
 echo $KEY
 
-# replace keys in TF VARS file
-sed -i.bak 's#'"$USERNAME"':.*#'"$USERNAME"':'"$KEY"'"#' $TF_DIR/terraform.tfvars
+# create or replace the .ssh_key file used in main.tf file
+TF_SSH_KEY_FILE="${TF_DIR}/.ssh_key"
+echo -n "${USERNAME}:${KEY}" > $TF_SSH_KEY_FILE
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to write SSH key to $TF_SSH_KEY_FILE."
+  exit 1
+fi
+
+chmod 600 $TF_SSH_KEY_FILE
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to set permissions on $TF_SSH_KEY_FILE."
+  exit 1
+fi
 
 # create instances
 cd $TF_DIR

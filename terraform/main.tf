@@ -84,7 +84,7 @@ resource "google_compute_instance" "default" {
     enable_vtpm                 = true
   }
   metadata = {
-    ssh-keys = var.ssh_keys.value
+    ssh-keys = file("${path.module}/.ssh_key")
     startup-script = file("${path.module}/cloudinit-${regex("control|worker", var.instance_name[count.index])}.sh")
   }
 }

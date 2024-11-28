@@ -35,6 +35,3 @@ image = "ubuntu-minimal-2204-jammy-v20240926"
 service_account = {
     name = "<service account>"
 }
-ssh_keys = {
-    value = "student:<new key to be generated>"
-}
