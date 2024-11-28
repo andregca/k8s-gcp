@@ -188,28 +188,6 @@ done
 
 echo "Done."
 
-# need to restart coredns to make sure it is distributed across different nodes
-echo "Waiting 30 seconds to restart coredns, to distribute it across different nodes"
-countdown=30
-while [ $countdown -ge 0 ]; do
-    printf '  countdown %s sec   \r' "${countdown}"
-    sleep 1
-    countdown=$(( $countdown-1 ))
-done
-echo "Done.                 "
-
-# restarting coredns on control node
-for i in ${!hostnames[*]}; do
-    # assumes control node has its hostname starting with "control"
-    hostname=${hostnames[i]}
-    if [[ $hostname == control* ]]; then
-        echo "Restarting coredns on ${hostname}..."
-        ssh ${hostname} "kubectl -n kube-system rollout restart deployment coredns"
-        echo "Done"
-        break
-    fi
-done
-
 echo "Check if DNS is working fine on control node using the commands below:"
 echo "1. Check if the coredns pods are running:"
 echo "   => kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide"
