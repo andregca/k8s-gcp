@@ -14,7 +14,8 @@ project = {
 # e2-medium - 2 vcpu (1 shared core), 4GB memory
 # e2-highcpu-2 - 2 vcpu (1 core), 2GB memory
 # n2-highcpu-2 - 2 vcpu (1 core), 2GB memory (intel cascade and ice lake)
-machine_type = "e2-medium"
+# n1-standard-2 - 2 vcpu (1 core), 7.5GB memory - used as reference by LFS258 class
+machine_type = "n1-standard-2"
 
 # provisioning model
 # SPOT or STANDARD - SPOT can be up to 91% cheaper
