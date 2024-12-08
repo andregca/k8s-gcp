@@ -57,3 +57,9 @@ variable "service_account" {
     description = ("Service Account Name")
     sensitive = true
 }
+
+variable "init_script_suffix" {
+    type = string
+    description = "cloudinit script suffix"
+    default = ".sh"
+}

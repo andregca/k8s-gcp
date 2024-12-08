@@ -75,7 +75,12 @@ resource "google_compute_instance" "default" {
 
   service_account {
     email  = var.service_account.name
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", 
+              "https://www.googleapis.com/auth/logging.write", 
+              "https://www.googleapis.com/auth/monitoring.write", 
+              "https://www.googleapis.com/auth/service.management.readonly", 
+              "https://www.googleapis.com/auth/servicecontrol", 
+              "https://www.googleapis.com/auth/trace.append"]
   }
 
   shielded_instance_config {
@@ -85,7 +90,8 @@ resource "google_compute_instance" "default" {
   }
   metadata = {
     ssh-keys = file("${path.module}/.ssh_key")
-    startup-script = file("${path.module}/cloudinit-${regex("control|worker", var.instance_name[count.index])}.sh")
+    startup-script = file("${path.module}/cloudinit-${regex("control|worker", 
+                      var.instance_name[count.index])}${var.init_script_suffix}")
   }
 }
 # [END compute_instances_create]

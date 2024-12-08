@@ -7,6 +7,61 @@ SSH_KEY_DIR=".ssh"
 SSH_CONFIG_FILE="$HOME/.ssh/config"
 SSH_KEY_FILE="$SSH_KEY_DIR/${USERNAME}_key"
 
+# parse command line arguments to set TF vars
+# Default values
+INSTALL_K8S="yes"
+INIT_SCRIPT_SUFFIX=".sh"
+PROVISIONING_MODEL=""
+
+# Function to display help
+function display_help() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  --no-install-k8s              Skip Kubernetes installation."
+    echo "  --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'."
+    echo "  --help                        Display this help message."
+    exit 0
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-install-k8s)
+            INSTALL_K8S="no"
+            INIT_SCRIPT_SUFFIX="-no-k8s.sh"
+            shift
+            ;;
+        --provisioning-model)
+            if [[ "$2" == "standard" ]]; then
+                PROVISIONING_MODEL="STANDARD"
+            elif [[ "$2" == "spot" ]]; then
+                PROVISIONING_MODEL="SPOT"
+            else
+                echo "Error: Invalid value for --provisioning-model. Allowed values are 'standard' or 'spot'."
+                exit 1
+            fi
+            shift 2
+            ;;
+        --help)
+            display_help
+            ;;
+        *)
+            echo "Error: Unknown argument $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Export environment variables only if they are defined
+if [[ -n "$INIT_SCRIPT_SUFFIX" ]]; then
+    export TF_VAR_init_script_suffix="$INIT_SCRIPT_SUFFIX"
+fi
+
+if [[ -n "$PROVISIONING_MODEL" ]]; then
+    export TF_VAR_provisioning_model="$PROVISIONING_MODEL"
+fi
+
+
 # create ssh key dir if it does not exist
 if [ ! -d "${SSH_KEY_DIR}" ]; then
     mkdir $SSH_KEY_DIR
@@ -92,9 +147,6 @@ public_ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_inte
 private_ip_addresses=( $(jq -r ".resources[0].instances[].attributes.network_interface[0].network_ip" $TF_STATE) )
 IFS=$IFS_SAVE
 
-# create a new lab_hosts file
-echo -e "\n# k8s cluster hosts" > ./lab_hosts
-
 ssh_lines=""
 host_lines=""
 for i in ${!hostnames[*]}; do
@@ -159,50 +211,53 @@ for i in ${!hostnames[*]}; do
     echo "Done"
 done
 
-# check if the control node is ready
-countdown=$RETRIES
-echo "Checking if control node is ready."
-while (( countdown > 0 )); do
-    control_node_check=$(ssh control-node "kubectl get nodes" | grep "control-plane" | grep -c "NotReady")
-    if [ ${control_node_check} == "0" ]; then
-        break
-    else
-        countdown=$(expr $countdown-1)
-        echo "Control node is not ready. Waiting $INTERVAL secs"
-        sleep $INTERVAL
-    fi
-done
+# Complete K8s cluster installation only if the option to not install k8s was not selected
+if [[ "$INSTALL_K8S" == "yes" ]]; then
+    # check if the control node is ready
+    countdown=$RETRIES
+    echo "Checking if control node is ready."
+    while (( countdown > 0 )); do
+        control_node_check=$(ssh control-node "kubectl get nodes" | grep "control-plane" | grep -c "NotReady")
+        if [ ${control_node_check} == "0" ]; then
+            break
+        else
+            countdown=$(expr $countdown-1)
+            echo "Control node is not ready. Waiting $INTERVAL secs"
+            sleep $INTERVAL
+        fi
+    done
 
-if (( countdown == 0 )); then
-    echo "Exiting after timeout. Waited ${timeout} secs. Run ./destroy.sh and try again."
-    exit
+    if (( countdown == 0 )); then
+        echo "Exiting after timeout. Waited ${timeout} secs. Run ./destroy.sh and try again."
+        exit
+    fi
+
+    echo "Done."
+
+    # configuring the cluster
+    # assumes node 1 is control, and the others are worker nodes
+    echo "Configuring the cluster..."
+    for i in ${!hostnames[*]}; do
+        hostname=${hostnames[i]}
+        if (( $i == 0 )); then
+            # generate join command
+            echo "Generating join command on control node"
+            join_cmd=$(ssh ${hostname} "kubeadm token create --print-join-command")
+        else
+            # execute join command
+            echo "joining on ${hostname}..."
+            result=$(ssh ${hostname} "sudo ${join_cmd}")
+            echo -e $result
+        fi
+    done
+
+    echo "Done."
+
+    echo "Check if DNS is working fine on control node using the commands below:"
+    echo "1. Check if the coredns pods are running:"
+    echo "   => kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide"
+    echo "2. If they are running in different nodes, run the command below to test dns:"
+    echo "   => kubectl run test-dns --rm -it --image=busybox --restart=Never -- nslookup kubernetes.default.svc.cluster.local"
+    echo "If the coredns pods are not running on different worker nodes, try to restart them:"
+    echo "   => kubectl -n kube-system rollout restart deployment coredns"
 fi
-
-echo "Done."
-
-# configuring the cluster
-# assumes node 1 is control, and the others are worker nodes
-echo "Configuring the cluster..."
-for i in ${!hostnames[*]}; do
-    hostname=${hostnames[i]}
-    if (( $i == 0 )); then
-        # generate join command
-        echo "Generating join command on control node"
-        join_cmd=$(ssh ${hostname} "kubeadm token create --print-join-command")
-    else
-        # execute join command
-        echo "joining on ${hostname}..."
-        result=$(ssh ${hostname} "sudo ${join_cmd}")
-        echo -e $result
-    fi
-done
-
-echo "Done."
-
-echo "Check if DNS is working fine on control node using the commands below:"
-echo "1. Check if the coredns pods are running:"
-echo "   => kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide"
-echo "2. If they are running in different nodes, run the command below to test dns:"
-echo "   => kubectl run test-dns --rm -it --image=busybox --restart=Never -- nslookup kubernetes.default.svc.cluster.local"
-echo "If the coredns pods are not running on different worker nodes, try to restart them:"
-echo "   => kubectl -n kube-system rollout restart deployment coredns"
