@@ -142,18 +142,37 @@ This project provides a Terraform configuration to create and manage Virtual Mac
   ./destroy.sh
   ```
 
+## Usage
+For lab creation, there are options to build VMs with and without k8s and calico (network plugin) installed. The option without k8s is useful to practice k8s installation. 
+You can also choose to use standard or spot instances. Spot instances are far cheaper, however they can be terminated any time by GCP according to demand.
+
+```
+Usage: ./create.sh [options]
+Options:
+  --no-install-k8s              Skip Kubernetes installation.
+  --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'.
+  --help                        Display this help message.
+```
+
+For lab cleanup, there is a single script without command line options:
+```
+Usage: ./destroy.sh
+```
+
 ## File Structure
 
 ```plaintext
-├── create.sh                      # Script to create VMs and setup K8s
-├── destroy.sh                     # Script to destroy all resources
-├── README.md                      # This file
+├── create.sh                          # Script to create VMs and setup K8s
+├── destroy.sh                         # Script to destroy all resources
+├── README.md                          # This file
 └── terraform
-    ├── cloudinit-control.sh       # cloudinit script for control node
-    ├── cloudinit-worker.sh        # cloudinit script for worker node
-    ├── main.tf                    # Core Terraform configuration for GCP
-    ├── terraform.tfvars           # Variable values (add your configuration here)
-    └── variables.tf               # Variable definitions for the project
+    ├── cloudinit-control.sh           # cloudinit script for control node
+    ├── cloudinit-control-no-k8s.sh    # cloudinit script for control node, without k8s
+    ├── cloudinit-worker.sh            # cloudinit script for worker node
+    ├── cloudinit-worker-no-k8s.sh     # cloudinit script for worker node, without k8s
+    ├── main.tf                        # Core Terraform configuration for GCP
+    ├── terraform.tfvars               # Variable values (add your configuration here)
+    └── variables.tf                   # Variable definitions for the project
 ```
 
 ## Troubleshooting
