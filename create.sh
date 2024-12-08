@@ -12,6 +12,7 @@ SSH_KEY_FILE="$SSH_KEY_DIR/${USERNAME}_key"
 INSTALL_K8S="yes"
 INIT_SCRIPT_SUFFIX=".sh"
 PROVISIONING_MODEL=""
+K8S_VERSION="latest"
 
 # Function to display help
 function display_help() {
@@ -19,8 +20,17 @@ function display_help() {
     echo "Options:"
     echo "  --no-install-k8s              Skip Kubernetes installation."
     echo "  --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'."
+    echo "  --k8s-version [value]         Set Kubernetes version to 'latest' (default) or a specific version (e.g., v1.29, v1.30)."
     echo "  --help                        Display this help message."
     exit 0
+}
+
+# Function to validate Kubernetes version
+function validate_k8s_version() {
+    if [[ "$1" != "latest" && ! "$1" =~ ^v[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: Invalid Kubernetes version '$1'. Allowed values are 'latest' or versions like 'v1.29', 'v1.30'."
+        exit 1
+    fi
 }
 
 # Parse arguments
@@ -42,6 +52,11 @@ while [[ $# -gt 0 ]]; do
             fi
             shift 2
             ;;
+        --k8s-version)
+            validate_k8s_version "$2"
+            K8S_VERSION="$2"
+            shift 2
+            ;;
         --help)
             display_help
             ;;
@@ -61,6 +76,7 @@ if [[ -n "$PROVISIONING_MODEL" ]]; then
     export TF_VAR_provisioning_model="$PROVISIONING_MODEL"
 fi
 
+export TF_VAR_k8s_version="${K8S_VERSION}"
 
 # create ssh key dir if it does not exist
 if [ ! -d "${SSH_KEY_DIR}" ]; then
@@ -175,21 +191,29 @@ declare -i RETRIES=18
 declare -i INTERVAL=10
 countdown=$RETRIES
 timeout=$(expr $INTERVAL \* $RETRIES)
+ZONE=( $(jq -r '.resources[0].instances[0].attributes.zone' $TF_STATE))
+COMPLETION_MARKER="STARTUP-SCRIPT-COMPLETED"
 echo "Checking if startup script finished."
 while (( countdown > 0 )); do
-    control_node_check=$(ssh control-node "sudo journalctl -u google-startup-scripts.service -n 5" | grep -c "$FINISHED_STR")
-    if [ ${control_node_check} != "0" ]; then
+    OUTPUT=$(
+        gcloud compute instances get-serial-port-output "${hostnames[0]}" \
+            --zone "$ZONE" --port 3 2>/dev/null | grep "$COMPLETION_MARKER"
+    )
+    if [ "$OUTPUT" ]; then
+        echo "Startup script completed successfully."
         break
     else
-        countdown=$(expr $countdown-1)
-        echo "Startup script is still running on control node... Waiting $INTERVAL secs..."
-        sleep $INTERVAL
+        countdown=$((countdown - 1))
+        printf "Startup script is still running on control node... Waiting %d secs... " \
+            "$INTERVAL"
+        printf "(%d attempts remaining)\n" "$countdown"
+        sleep "$INTERVAL"
     fi
 done
 
 if (( countdown == 0 )); then
     echo "Exiting after timeout. Waited ${timeout} secs. Run ./destroy.sh and try again."
-    exit
+    exit 1
 fi
 
 echo "Done"

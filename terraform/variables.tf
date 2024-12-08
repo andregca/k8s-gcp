@@ -63,3 +63,9 @@ variable "init_script_suffix" {
     description = "cloudinit script suffix"
     default = ".sh"
 }
+
+variable "k8s_version" {
+    type = string
+    description = "Kubernetes version to use"
+    default = "latest"
+}

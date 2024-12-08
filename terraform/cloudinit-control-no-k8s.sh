@@ -118,6 +118,7 @@ sudo sed -i 's/\/swap/#\/swap/' /etc/fstab
 sudo crictl config --set \
     runtime-endpoint=unix:///run/containerd/containerd.sock
 
+echo "STARTUP-SCRIPT-COMPLETED" | sudo tee /dev/ttyS2
 
 echo "Finished setup"
 exit

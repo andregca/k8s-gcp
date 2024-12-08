@@ -31,11 +31,21 @@ provider "google" {
   zone    = var.zone
 }
 
+# define project level metadata
+resource "google_compute_project_metadata" "default" {
+  metadata = {
+    k8s_version = var.k8s_version
+  }
+}
+
 # Create a VM instance from a public image
 # in the `default` VPC network and subnet
 resource "google_compute_instance" "default" {
   # iterate on the number of instance_names
   count = length(var.instance_name)
+
+  depends_on = [google_compute_project_metadata.default] # Ensure metadata is created first
+
   name                = "${var.instance_name[count.index]}"
   machine_type        = var.machine_type
   description         = "K8s ${var.instance_name[count.index]}"
@@ -80,7 +90,8 @@ resource "google_compute_instance" "default" {
               "https://www.googleapis.com/auth/monitoring.write", 
               "https://www.googleapis.com/auth/service.management.readonly", 
               "https://www.googleapis.com/auth/servicecontrol", 
-              "https://www.googleapis.com/auth/trace.append"]
+              "https://www.googleapis.com/auth/trace.append",
+              "https://www.googleapis.com/auth/cloud-platform"]
   }
 
   shielded_instance_config {

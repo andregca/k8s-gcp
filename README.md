@@ -151,6 +151,8 @@ Usage: ./create.sh [options]
 Options:
   --no-install-k8s              Skip Kubernetes installation.
   --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'.
+  --k8s-version [value]         Set Kubernetes version to 'latest' (default) or a specific 
+                                version (e.g., v1.29, v1.30).
   --help                        Display this help message.
 ```
 
