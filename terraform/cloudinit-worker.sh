@@ -17,9 +17,40 @@ sudo apt-get install -y jq apparmor-utils vim less apt-transport-https bash-comp
 # the compatibility matrix with containerd can be found at
 # https://github.com/containerd/containerd/blob/main/RELEASES.md
 # if you want to hard code the releases, uncomment the lines below
-#KUBEVERSION="v1.31"
 #CONTAINERD_VERSION="2.0.0"
 #RUNC_VERSION="v1.2.1"
+
+# get metadata to define KUBEVERSION
+meta_url="http://metadata.google.internal/computeMetadata/v1/project/attributes/k8s_version"
+# Initialize a counter
+counter=0
+# Maximum time to wait (in seconds)
+max_wait=30
+
+# Loop to check the metadata value
+while [[ $counter -lt $max_wait ]]; do
+  # Fetch the metadata value
+  meta_kube_value=$(curl -H "Metadata-Flavor: Google" -s "$meta_url")
+  # Check if the value is not empty
+  if [[ -n "$meta_kube_value" ]]; then
+    echo "Successfully retrieved k8s_version: $meta_kube_value after $counter second(s)"
+    break
+  fi
+  # Increment the counter and wait for 1 second
+  counter=$((counter + 1))
+  sleep 1
+done
+
+# Check if the loop completed without retrieving a valid value
+if [[ -z "$meta_kube_value" ]]; then
+  echo "Error: Failed to retrieve k8s_version metadata within $max_wait seconds."
+  exit 1
+fi
+
+# if version is not "latest", use the metadata version
+if [[ ${meta_kube_value} != "latest" ]]; then
+  KUBEVERSION=$meta_kube_value
+fi
 
 # beta: building in ARM support
 [ $(arch) = aarch64 ] && PLATFORM=arm64
