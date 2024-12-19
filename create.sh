@@ -19,6 +19,7 @@ function display_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  --no-install-k8s              Skip Kubernetes installation."
+    echo "  --ha-lab                      Set 4 nodes and skip Kubernetes installation."
     echo "  --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'."
     echo "  --k8s-version [value]         Set Kubernetes version to 'latest' (default) or a specific version (e.g., v1.29, v1.30)."
     echo "  --help                        Display this help message."
@@ -39,6 +40,12 @@ while [[ $# -gt 0 ]]; do
         --no-install-k8s)
             INSTALL_K8S="no"
             INIT_SCRIPT_SUFFIX="-no-k8s.sh"
+            shift
+            ;;
+        --ha-lab)
+            INSTALL_K8S="no"
+            INIT_SCRIPT_SUFFIX="-no-k8s.sh"
+            export TF_VAR_instance_name='[ "control-node", "worker1-node", "worker2-node", "worker3-node" ]'
             shift
             ;;
         --provisioning-model)

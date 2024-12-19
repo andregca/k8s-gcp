@@ -7,3 +7,4 @@ terraform/.terraform*
 *.bak
 git-push.sh
 terraform/.ssh_key
+util/haproxy.cfg
