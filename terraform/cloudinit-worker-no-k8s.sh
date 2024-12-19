@@ -106,4 +106,44 @@ sudo sed -i 's/\/swap/#\/swap/' /etc/fstab
 sudo crictl config --set \
     runtime-endpoint=unix:///run/containerd/containerd.sock
 
+# create a kubernetes installation script to be used
+USER="student"
+GROUP="student"
+INSTALL_FILE="/home/$USER/install-k8s-tools.sh"
+cat <<EOF | sudo tee $INSTALL_FILE
+# (install kubernetes tools)
+# define version if not hard coded
+if [ -z "\${KUBEVERSION}" ]; then
+  # detecting latest Kubernetes version
+  KUBEVERSION=\$(curl -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r '.tag_name')
+  KUBEVERSION=\${KUBEVERSION%.*}
+fi
+
+cat <<EOS | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+EOS
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/\${KUBEVERSION}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/\${KUBEVERSION}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sleep 2
+
+export NEEDRESTART_MODE=a
+sudo apt-get update
+sudo -E apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+sudo swapoff -a
+
+# allow user to run kubeadm
+cat <<EOS | tee ~/.kubectlrc
+
+# make kubernetes work for non-root user
+mkdir -p ~/.kube
+sudo cp -i /etc/kubernetes/admin.conf ~/.kube/config
+EOS
+
+# enable auto complete on student account
+echo "source /etc/bash_completion" >> ~/.bashrc
+kubectl completion bash >> ~/.bashrc
+source ~/.bashrc
+EOF
 exit

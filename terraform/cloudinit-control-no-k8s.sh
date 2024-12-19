@@ -120,6 +120,108 @@ sudo sed -i 's/\/swap/#\/swap/' /etc/fstab
 sudo crictl config --set \
     runtime-endpoint=unix:///run/containerd/containerd.sock
 
+# create a kubernetes installation script to be used
+USER="student"
+GROUP="student"
+INSTALL_FILE="/home/$USER/install-k8s-tools.sh"
+cat <<EOF | sudo tee $INSTALL_FILE
+# (install kubernetes tools)
+# define version if not hard coded
+if [ -z "\${KUBEVERSION}" ]; then
+  # detecting latest Kubernetes version
+  KUBEVERSION=\$(curl -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r '.tag_name')
+  KUBEVERSION=\${KUBEVERSION%.*}
+fi
+
+cat <<EOS | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+EOS
+
+curl -fsSL https://pkgs.k8s.io/core:/stable:/\${KUBEVERSION}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/\${KUBEVERSION}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sleep 2
+
+export NEEDRESTART_MODE=a
+sudo apt-get update
+sudo -E apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+sudo swapoff -a
+
+# allow user to run kubeadm
+cat <<EOS | tee ~/.kubectlrc
+
+# make kubernetes work for non-root user
+mkdir -p ~/.kube
+sudo cp -i /etc/kubernetes/admin.conf ~/.kube/config
+EOS
+
+# enable auto complete on student account
+echo "source /etc/bash_completion" >> ~/.bashrc
+kubectl completion bash >> ~/.bashrc
+source ~/.bashrc
+EOF
+
+cat <<EOF | sudo tee /home/$USER/install-calico.sh
+# install calico on control node
+# use the latest calico manifest
+wget -O /tmp/calico.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/calico.yaml 
+kubectl apply -f /tmp/calico.yaml
+
+# install calicoctl as a kubectl plugin
+sudo curl -L https://github.com/projectcalico/calico/releases/download/v3.29.1/calicoctl-linux-amd64 -o /usr/local/bin/kubectl-calico
+sudo chmod 755 /usr/local/bin/kubectl-calico
+
+# install calico api server
+mkdir .apiserver
+wget -O .apiserver/apiserver.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/apiserver.yaml
+kubectl create -f .apiserver/apiserver.yaml
+openssl req -x509 -nodes -newkey rsa:4096 -keyout .apiserver/apiserver.key -out .apiserver/apiserver.crt -days 365 -subj "/" -addext "subjectAltName = DNS:calico-api.calico-apiserver.svc"
+kubectl create secret -n calico-apiserver generic calico-apiserver-certs --from-file=.apiserver/apiserver.key --from-file=.apiserver/apiserver.crt
+SECRET=\$(kubectl get secret -n calico-apiserver calico-apiserver-certs -o go-template='{{ index .data "apiserver.crt" }}')
+kubectl patch apiservice v3.projectcalico.org -p "{\"spec\": {\"caBundle\": \"\$SECRET\"}}"
+
+# Maximum wait time in seconds
+MAX_WAIT_TIME=60
+WAIT_INTERVAL=2  # Interval to check in seconds
+ELAPSED_TIME=0   # Initialize elapsed time
+
+# Wait for the default-ipv4-ippool to be created
+echo "Waiting for default-ipv4-ippool to be created..."
+while true; do
+  # Check if the IPPool exists as the specified user
+  kubectl get ippool default-ipv4-ippool &> /dev/null
+  if [[ \$? -eq 0 ]]; then
+    echo "default-ipv4-ippool detected!"
+    break
+  fi
+
+  # Increment elapsed time and check timeout
+  ELAPSED_TIME=\$((ELAPSED_TIME + WAIT_INTERVAL))
+  if [[ \$ELAPSED_TIME -ge \$MAX_WAIT_TIME ]]; then
+    echo "Timeout reached! default-ipv4-ippool was not created within \$MAX_WAIT_TIME seconds."
+    exit 1
+  fi
+
+  sleep \$WAIT_INTERVAL
+done
+
+# change the calico overlay from ipip tunnel to vxlan
+echo "Patching default-ipv4-ippool..."
+kubectl calico patch ippool default-ipv4-ippool --type=merge -p '{
+  "spec": {
+    "vxlanMode": "Always",
+    "ipipMode": "Never"
+  }
+}'
+
+if [[ \$? -eq 0 ]]; then
+  echo "default-ipv4-ippool successfully patched."
+else
+  echo "Failed to patch default-ipv4-ippool. Check for errors."
+  exit 1
+fi
+EOF
+
 echo "STARTUP-SCRIPT-COMPLETED" | sudo tee /dev/ttyS2
 
 echo "Finished setup"
