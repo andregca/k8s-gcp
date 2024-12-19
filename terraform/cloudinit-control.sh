@@ -211,7 +211,7 @@ wget -O .apiserver/apiserver.yaml https://raw.githubusercontent.com/projectcalic
 kubectl create -f .apiserver/apiserver.yaml
 openssl req -x509 -nodes -newkey rsa:4096 -keyout .apiserver/apiserver.key -out .apiserver/apiserver.crt -days 365 -subj "/" -addext "subjectAltName = DNS:calico-api.calico-apiserver.svc"
 kubectl create secret -n calico-apiserver generic calico-apiserver-certs --from-file=.apiserver/apiserver.key --from-file=.apiserver/apiserver.crt
-SECRET=$(kubectl get secret -n calico-apiserver calico-apiserver-certs -o go-template='{{ index .data ".apiserver/apiserver.crt" }}')
+SECRET=$(kubectl get secret -n calico-apiserver calico-apiserver-certs -o go-template='{{ index .data "apiserver.crt" }}')
 kubectl patch apiservice v3.projectcalico.org -p "{\"spec\": {\"caBundle\": \"$SECRET\"}}"
 EOC
 
