@@ -150,11 +150,14 @@ You can also choose to use standard or spot instances. Spot instances are far ch
 Usage: ./create.sh [options]
 Options:
   --no-install-k8s              Skip Kubernetes installation.
+  --ha-lab                      Set 4 nodes and skip Kubernetes installation.
   --provisioning-model [value]  Set provisioning model to 'standard' or 'spot'.
   --k8s-version [value]         Set Kubernetes version to 'latest' (default) or a specific 
                                 version (e.g., v1.29, v1.30).
   --help                        Display this help message.
 ```
+
+If you use the ha-lab option, there is an additional script which can be used to help generating the haproxy configuration: util/gen-haproxy-config.sh
 
 For lab cleanup, there is a single script without command line options:
 ```
@@ -167,6 +170,8 @@ Usage: ./destroy.sh
 ├── create.sh                          # Script to create VMs and setup K8s
 ├── destroy.sh                         # Script to destroy all resources
 ├── README.md                          # This file
+├── util
+|   ├── gen-haproxy-config.sh          # generates a sample haproxy config file (for HA)
 └── terraform
     ├── cloudinit-control.sh           # cloudinit script for control node
     ├── cloudinit-control-no-k8s.sh    # cloudinit script for control node, without k8s
