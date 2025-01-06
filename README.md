@@ -171,7 +171,7 @@ Usage: ./destroy.sh
 ├── destroy.sh                         # Script to destroy all resources
 ├── README.md                          # This file
 ├── util
-|   ├── gen-haproxy-config.sh          # generates a sample haproxy config file (for HA)
+|   └── gen-haproxy-config.sh          # generates a sample haproxy config file (for HA)
 └── terraform
     ├── cloudinit-control.sh           # cloudinit script for control node
     ├── cloudinit-control-no-k8s.sh    # cloudinit script for control node, without k8s
